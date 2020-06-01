@@ -22,9 +22,9 @@ type LedgerReader interface {
 	Close() error
 }
 
-// DBLedgerReader is a database-backed implementation of the io.LedgerReader interface.
-// Use NewDBLedgerReader to create a new instance.
-type DBLedgerReader struct {
+// LedgerBackendReader is an implementation of the io.LedgerReader interface, using a ledger backend.
+// Use NewLedgerBackendReader to create a new instance.
+type LedgerBackendReader struct {
 	ctx            context.Context
 	sequence       uint32
 	backend        ledgerbackend.LedgerBackend
@@ -35,15 +35,15 @@ type DBLedgerReader struct {
 	upgradeReadIdx int
 }
 
-// Ensure DBLedgerReader implements LedgerReader
-var _ LedgerReader = (*DBLedgerReader)(nil)
+// Ensure LedgerBackendReader implements LedgerReader
+var _ LedgerReader = (*LedgerBackendReader)(nil)
 
-// NewDBLedgerReader creates a new DBLedgerReader instance.
-// Note that DBLedgerReader is not thread safe and should not be shared by multiple goroutines
-func NewDBLedgerReader(
+// NewLedgerBackendReader creates a new LedgerBackendReader instance.
+// Note that LedgerBackendReader is not thread safe and should not be shared by multiple goroutines
+func NewLedgerBackendReader(
 	ctx context.Context, sequence uint32, backend ledgerbackend.LedgerBackend,
-) (*DBLedgerReader, error) {
-	reader := &DBLedgerReader{
+) (*LedgerBackendReader, error) {
+	reader := &LedgerBackendReader{
 		ctx:      ctx,
 		sequence: sequence,
 		backend:  backend,
@@ -58,18 +58,18 @@ func NewDBLedgerReader(
 }
 
 // GetSequence returns the sequence number of the ledger data stored by this object.
-func (dblrc *DBLedgerReader) GetSequence() uint32 {
+func (dblrc *LedgerBackendReader) GetSequence() uint32 {
 	return dblrc.sequence
 }
 
 // GetHeader returns the XDR Header data associated with the stored ledger.
-func (dblrc *DBLedgerReader) GetHeader() xdr.LedgerHeaderHistoryEntry {
+func (dblrc *LedgerBackendReader) GetHeader() xdr.LedgerHeaderHistoryEntry {
 	return dblrc.header
 }
 
 // Read returns the next transaction in the ledger, ordered by tx number, each time it is called. When there
 // are no more transactions to return, an EOF error is returned.
-func (dblrc *DBLedgerReader) Read() (LedgerTransaction, error) {
+func (dblrc *LedgerBackendReader) Read() (LedgerTransaction, error) {
 	if err := dblrc.ctx.Err(); err != nil {
 		return LedgerTransaction{}, err
 	}
@@ -83,7 +83,7 @@ func (dblrc *DBLedgerReader) Read() (LedgerTransaction, error) {
 
 // readUpgradeChange returns the next upgrade change in the ledger, each time it
 // is called. When there are no more upgrades to return, an EOF error is returned.
-func (dblrc *DBLedgerReader) readUpgradeChange() (Change, error) {
+func (dblrc *LedgerBackendReader) readUpgradeChange() (Change, error) {
 	if err := dblrc.ctx.Err(); err != nil {
 		return Change{}, err
 	}
@@ -96,12 +96,12 @@ func (dblrc *DBLedgerReader) readUpgradeChange() (Change, error) {
 }
 
 // Rewind resets the reader back to the first transaction in the ledger
-func (dblrc *DBLedgerReader) rewind() {
+func (dblrc *LedgerBackendReader) rewind() {
 	dblrc.readIdx = 0
 }
 
 // Init pulls data from the backend to set this object up for use.
-func (dblrc *DBLedgerReader) init() error {
+func (dblrc *LedgerBackendReader) init() error {
 	exists, ledgerCloseMeta, err := dblrc.backend.GetLedger(dblrc.sequence)
 
 	if err != nil {
@@ -125,7 +125,7 @@ func (dblrc *DBLedgerReader) init() error {
 
 // storeTransactions maps the close meta data into a slice of LedgerTransaction structs, to provide
 // a per-transaction view of the data when Read() is called.
-func (dblrc *DBLedgerReader) storeTransactions(lcm ledgerbackend.LedgerCloseMeta) {
+func (dblrc *LedgerBackendReader) storeTransactions(lcm ledgerbackend.LedgerCloseMeta) {
 	for i := range lcm.TransactionEnvelope {
 		dblrc.transactions = append(dblrc.transactions, LedgerTransaction{
 			Index:      uint32(i + 1), // Transactions start at '1'
@@ -137,7 +137,7 @@ func (dblrc *DBLedgerReader) storeTransactions(lcm ledgerbackend.LedgerCloseMeta
 	}
 }
 
-func (dblrc *DBLedgerReader) Close() error {
+func (dblrc *LedgerBackendReader) Close() error {
 	dblrc.transactions = nil
 	dblrc.upgradeChanges = nil
 	return nil

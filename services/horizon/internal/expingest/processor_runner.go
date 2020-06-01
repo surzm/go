@@ -158,7 +158,7 @@ func (s *ProcessorRunner) validateBucketList(ledgerSequence uint32) error {
 		return errors.Wrap(err, "Error getting bucket list hash")
 	}
 
-	ledgerReader, err := io.NewDBLedgerReader(s.ctx, ledgerSequence, s.ledgerBackend)
+	ledgerReader, err := io.NewLedgerBackendReader(s.ctx, ledgerSequence, s.ledgerBackend)
 	if err != nil {
 		if err == io.ErrNotFound {
 			return fmt.Errorf(
@@ -264,7 +264,7 @@ func (s *ProcessorRunner) runChangeProcessorOnLedger(
 func (s *ProcessorRunner) RunTransactionProcessorsOnLedger(ledger uint32) (io.StatsLedgerTransactionProcessorResults, error) {
 	ledgerTransactionStats := io.StatsLedgerTransactionProcessor{}
 
-	ledgerReader, err := io.NewDBLedgerReader(s.ctx, ledger, s.ledgerBackend)
+	ledgerReader, err := io.NewLedgerBackendReader(s.ctx, ledger, s.ledgerBackend)
 	if err != nil {
 		return ledgerTransactionStats.GetResults(), errors.Wrap(err, "Error creating ledger reader")
 	}

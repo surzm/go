@@ -22,7 +22,7 @@ type ChangeReader interface {
 // LedgerChangeReader is a ChangeReader which returns Changes from Stellar Core
 // for a single ledger
 type LedgerChangeReader struct {
-	dbReader               DBLedgerReader
+	reader                 LedgerBackendReader
 	streamedFeeChanges     bool
 	streamedMetaChanges    bool
 	streamedUpgradeChanges bool
@@ -39,17 +39,17 @@ var _ ChangeReader = (*LedgerChangeReader)(nil)
 func NewLedgerChangeReader(
 	ctx context.Context, sequence uint32, backend ledgerbackend.LedgerBackend,
 ) (*LedgerChangeReader, error) {
-	reader, err := NewDBLedgerReader(ctx, sequence, backend)
+	reader, err := NewLedgerBackendReader(ctx, sequence, backend)
 	if err != nil {
 		return nil, err
 	}
 
-	return &LedgerChangeReader{dbReader: *reader}, nil
+	return &LedgerChangeReader{reader: *reader}, nil
 }
 
 // GetHeader returns the ledger header for the reader
 func (r *LedgerChangeReader) GetHeader() xdr.LedgerHeaderHistoryEntry {
-	return r.dbReader.GetHeader()
+	return r.reader.GetHeader()
 }
 
 func (r *LedgerChangeReader) getNextFeeChange() (Change, error) {
@@ -61,10 +61,10 @@ func (r *LedgerChangeReader) getNextFeeChange() (Change, error) {
 	// tx signer even when it's a failed transaction so we need to check
 	// failed transactions too.
 	for {
-		transaction, err := r.dbReader.Read()
+		transaction, err := r.reader.Read()
 		if err != nil {
 			if err == io.EOF {
-				r.dbReader.rewind()
+				r.reader.rewind()
 				r.streamedFeeChanges = true
 				return Change{}, io.EOF
 			} else {
@@ -86,7 +86,7 @@ func (r *LedgerChangeReader) getNextMetaChange() (Change, error) {
 	}
 
 	for {
-		transaction, err := r.dbReader.Read()
+		transaction, err := r.reader.Read()
 		if err != nil {
 			if err == io.EOF {
 				r.streamedMetaChanges = true
@@ -112,7 +112,7 @@ func (r *LedgerChangeReader) getNextUpgradeChange() (Change, error) {
 		return Change{}, io.EOF
 	}
 
-	change, err := r.dbReader.readUpgradeChange()
+	change, err := r.reader.readUpgradeChange()
 	if err != nil {
 		if err == io.EOF {
 			r.streamedUpgradeChanges = true
@@ -129,7 +129,7 @@ func (r *LedgerChangeReader) getNextUpgradeChange() (Change, error) {
 // If there are no changes remaining io.EOF is returned
 // as an error.
 func (r *LedgerChangeReader) Read() (Change, error) {
-	if err := r.dbReader.ctx.Err(); err != nil {
+	if err := r.reader.ctx.Err(); err != nil {
 		return Change{}, err
 	}
 
@@ -161,5 +161,5 @@ func (r *LedgerChangeReader) Close() error {
 	r.streamedFeeChanges = true
 	r.streamedMetaChanges = true
 	r.streamedUpgradeChanges = true
-	return r.dbReader.Close()
+	return r.reader.Close()
 }
