@@ -1,4 +1,4 @@
-module github.com/stellar/go
+module github.com/surzm/go
 
 go 1.13
 
