@@ -1,4 +1,4 @@
-module github.com/surzm/go
+module github.com/surzm/go/v2
 
 go 1.13
 
